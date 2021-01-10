@@ -187,31 +187,30 @@ This is important for two reasons:
     (when (>= (length point-list) 3)
       (dump-points point-list) ;; For gnuplot visualization
       ;; First triangle
-      (setf triangle-list (push super-triangle triangle-list))
+      (push super-triangle triangle-list))
       
-      (loop :for vertex :in point-list
-            :for polygon-edges = '()
-            :for bad-triangles = '()
-            :do               
-               (loop :for triangle :in triangle-list
-                     :when (inside-circle-p triangle vertex) :do                       
-                       (npush triangle bad-triangles))
+    (loop :for vertex :in point-list
+          :for polygon-edges = '()
+          :for bad-triangles = '()
+          :do               
+             (loop :for triangle :in triangle-list
+                   :when (inside-circle-p triangle vertex) :do                       
+                     (push triangle bad-triangles))
+             
+             (let ((candidate-edges '()))
+               (dolist (tri bad-triangles)
+                 (push (list (first tri) (second tri)) candidate-edges)
+                 (push (list (second tri) (third tri)) candidate-edges)
+                 (push (list (third tri) (first tri)) candidate-edges)
+                 (ndelete tri triangle-list))
                
-               (let ((candidate-edges '()))
-                 (dolist (tri bad-triangles)
-                   (npush (list (first tri) (second tri)) candidate-edges)
-                   (npush (list (second tri) (third tri)) candidate-edges)
-                   (npush (list (third tri) (first tri)) candidate-edges)
-                   (ndelete tri triangle-list))
-                 
-                 (dolist (edge candidate-edges)
-                   (when (= 1 (count edge candidate-edges :test #'edge=))
-                     (npush edge polygon-edges))))
-               
-               (dolist (edge polygon-edges)
-                 (npush (counterclockwise (list (first edge) (second edge) vertex)) triangle-list))
-               ;(debug-triangle-image triangle-list)
-            ))
+               (dolist (edge candidate-edges)
+                 (when (= 1 (count edge candidate-edges :test #'edge=))
+                   (push edge polygon-edges))))
+             
+             (dolist (edge polygon-edges)
+               (push (counterclockwise (list (first edge) (second edge) vertex)) triangle-list))
+                                        (debug-triangle-image triangle-list))
     
     ;; Cleanup: remove supertriangle-related triangles
     (flet ((contains-super-vertex-p (triangle)
