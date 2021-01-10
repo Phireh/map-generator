@@ -1,0 +1,14 @@
+# Compiled Lisp files
+*.fasl
+# Emacs temp files
+*~
+\#*\#
+.\#*
+# Dump text files
+*.txt
+# Dump images
+*.png
+# Personal notes
+notes.md
+# I honestly dunno what this file does
+system-index.txt
