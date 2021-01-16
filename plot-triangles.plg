@@ -2,7 +2,7 @@
 #set output "triangles.png"
 set xrange [-1.5:2.5]
 set yrange [-0.01:2]
-plot 'points.txt' ps 3,'triangle-data.txt' using 1:2 with lines
+plot 'points.txt' ps 3,'triangle-data.txt' using 1:2 with lines, 'circle-data.txt' using 1:2 with points, 'cells.txt' using 1:2 with lines
 while (1) {
       replot
       pause 1
