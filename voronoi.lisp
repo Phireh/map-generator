@@ -9,6 +9,14 @@
 (defvar *voronoi-pqueue* nil)
 (defvar *gnuplot-handle* nil)
 (defvar *super-triangle-padding* 0.01f0)
+(defvar *bounding-box-min-x* 0)
+(defvar *bounding-box-max-x* 1)
+(defvar *bounding-box-min-y* 0)
+(defvar *bounding-box-max-y* 1)
+(defvar *bounding-box-vertices* (list (v! *bounding-box-min-x* *bounding-box-min-y*)
+                                      (v! *bounding-box-min-x* *bounding-box-max-y*)
+                                      (v! *bounding-box-max-x* *bounding-box-min-y*)
+                                      (v! *bounding-box-max-x* *bounding-box-max-y*)))
 
 (defun debug-triangle-image (triangle-list)
   "Launches a gnuplot process to draw the process."
@@ -335,12 +343,27 @@ This is important for two reasons:
   (push (v! 1 0) list)
   (push (v! 1 1) list))
 
+(defun inside-bounding-box-p (point)
+  (let ((xp (x point))
+        (yp (y point)))
+    (and (<= *bounding-box-min-x* xp *bounding-box-max-x*)
+         (<= *bounding-box-min-y* yp *bounding-box-max-y*))))
+
 (defun voronoi (n &key (points nil))
   "Takes a number n of points in (0,0-1,1) range and returns a list
    of cells. A cell being a list where the first member is the center
    and the rest are tuples of 2d vectos representing edges."
-  (let* ((point-list (push-bounding-box (if points points (make-points n))))
-         (triangulation (delaunay-slow point-list)))
+  (let ((point-list (if points points (make-points n)))
+        (triangulation nil))
+    ;; Add guardrail points of bounding box if not already in list
+    (unless (remove-if-not (lambda (vec) (or (rtg-math.vector2:= vec (first *bounding-box-vertices*))
+                                             (rtg-math.vector2:= vec (second *bounding-box-vertices*))
+                                             (rtg-math.vector2:= vec (third *bounding-box-vertices*))
+                                             (rtg-math.vector2:= vec (fourth *bounding-box-vertices*))))
+                           point-list))
+    (setf point-list (push-bounding-box point-list))
+    (setf triangulation (delaunay-slow point-list))
+    
     (loop :for point :in point-list
           ;:for i :below 1
           :for point-triangle-list = '()
@@ -388,8 +411,7 @@ This is important for two reasons:
 ;; TODO: Apply bounding box.
 (defun lloyd (voronoi-diagram &optional (n 1))
   "Applies Lloyd's relaxation to a Voronoi diagram."
-  (let ((new-diagram voronoi-diagram)
-        (new-centroids '()))
+  (let ((new-diagram voronoi-diagram))
     (flet ((cell-centroid (cell)
              "Computes the centroid of a Voronoi cell by accumulating the area and center of each of its
               constituent triangles. The centroid is calculated by the formula C = (1/A_c)*sum(a_i*c_i), where:
@@ -411,16 +433,28 @@ This is important for two reasons:
                         (incf acc-area triangle-area)
                         (rtg-math.vector2:incf weighted-sum weighted-centroid)
                      :finally
-                        
-                        (return (rtg-math.vector2:*s weighted-sum (/ 1 acc-area)))))))
-      (loop :for i :below n :do
-        (loop :for cell :in new-diagram
-              :for centroid = (car cell)
-              ;; Only try to compute new centroid if a cell is well formed (aka is not a single point)
-              :when (> (length cell) 1) :do
-                (setf centroid (cell-centroid cell))
-              :do
-                 (push centroid new-centroids)
-              :finally
-                 (setf new-diagram (voronoi 0 :points new-centroids)))
+                        (let ((centroid-candidate (rtg-math.vector2:*s weighted-sum (/ 1 acc-area))))
+                          (if (inside-bounding-box-p centroid-candidate)
+                              (return centroid-candidate)
+                              ;; TODO: Handle border case moving the centroid in a more clever way
+                              (return center)))))))
+      (loop :for i :below n
+            :for new-centroids = '()
+            :do
+               (loop :for cell :in new-diagram
+                     :for centroid = (car cell)
+                     ;; Only try to compute new centroid if a cell is well formed (aka is not a single point).
+                     ;; Also do not try to modify the position of the bounding box guardrails
+                     :when (and (> (length cell) 1)
+                                (not (or (rtg-math.vector2:= centroid (first *bounding-box-vertices*))
+                                         (rtg-math.vector2:= centroid (second *bounding-box-vertices*))
+                                         (rtg-math.vector2:= centroid (third *bounding-box-vertices*))
+                                         (rtg-math.vector2:= centroid (fourth *bounding-box-vertices*)))))
+                       :do
+                           (format t "Moving ~A to ~A~%" (first cell) (cell-centroid cell))
+                           (setf centroid (cell-centroid cell))
+                       :do
+                          (push centroid new-centroids)
+                     :finally
+                        (setf new-diagram (voronoi 0 :points new-centroids)))
             :finally (return new-diagram)))))
