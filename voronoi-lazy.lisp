@@ -1,18 +1,10 @@
 ;; !! This file is just for benchmarking and can be ignored. !!
 
-;; Fortune's algorithm is hard to implement so a GPU version
-;; is useful to test against whilst writing the software one
 (in-package #:map-generator)
-
-;; TODO: Maybe move aliases to a subpackage
-(setf (fdefinition 'vec+) #'rtg-math.vectors:+)
-(setf (fdefinition 'vec-) #'rtg-math.vectors:-)
 
 (defvar *voronoi-lazy-cone-radius* 0.2)
 (defvar *voronoi-lazy-ntriangles* 64)
 (defvar *voronoi-lazy-height* 0.05)
-
-
 
 ;; SBCL emits style-warnings when the compiler encounters the type :vec3
 ;; even if it works correctly. This reduces compiler verbosity while compiling
@@ -45,7 +37,7 @@
               :for offset-y = (* (sin angle) *voronoi-lazy-cone-radius*)
               :for offset-vector = (v2! offset-x offset-y)
               :do
-                 (push (v! (vec+ cone-center offset-vector) 0.1) cone-vert-list)
+                 (push (v! (rtg-math.vectors:+ cone-center offset-vector) 0.1) cone-vert-list)
               :finally (push (nreverse cone-vert-list) cone-vertices))))))
 ;; Return compiler verbosity to the usual
 (declaim #+sbcl(sb-ext:unmuffle-conditions style-warning))

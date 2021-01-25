@@ -150,8 +150,6 @@
   (swap)
   (decay-events))
 
-;; TODO: Calling (main-loop :start) without a previous call to (init) creates a void orphan window
-;; This happens even if we don't draw anything
 (def-simple-main-loop main-loop (:on-start #'init)
   (when (and *initialized* :start)
     (draw)))
