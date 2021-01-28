@@ -47,6 +47,7 @@
 (defun dump-triangles (triangle-list)
   (when (and *debugging-voronoi*
              *debugging-delaunay*)
+
     (with-open-file (str "triangle-data.txt"
                          :direction :output
                          :if-exists :supersede
@@ -117,6 +118,37 @@ This is important for two reasons:
        (if (counterclockwise-p a b c)
            tri              ; return triangle if already counterclockwise
            (list b a c)))))) ; otherwise turn triangle into counterclockwise
+
+(defun unique-points (edge-list)
+  "Returns a list of unique points from a list of edges. This is useful to get a
+   list easily representable by a triangle fan."
+  (let ((points '()))
+    (dolist (edge edge-list)
+      (push (first edge) points)
+      (push (second edge) points))
+    (remove-duplicates points :test #'rtg-math.vector2:=)))
+
+(defun counterclockwise-order (centroid point-list)
+  "Takes a list of 2D points and a centroid and returns them in strict counterclockwise order.
+   This is useful for creating triangle fans, as they need to be in culling order."
+  ;; TODO: check if this correcty on OpenGL using (0,1) or we need to pass in a centroid.
+  (map 'list #'car
+       (sort
+        (loop :for point :in point-list
+              :with point-angle-list = '()
+              :for angle = (rtg-math.vector2:angle-from (v! 1 0) (rtg-math.vector2:normalize (rtg-math.vector2:- centroid point)))
+              :do
+                 (when (< angle 0)
+                   (incf angle (* 2 pi)))
+                 (format t "Angle to point ~A is ~A~%" point angle)
+                 (push (list point angle) point-angle-list)
+              :finally (return point-angle-list)) (lambda (p1 p2) (< (cadr p1) (cadr p2))))))
+
+(defun cell-to-fan (cell)
+  "Takes a voronoi cells and returns a list of points suitable for rendering as a triangle fan.
+   Note that we introduce and additional point to close the polygon figure"
+  (let ((point-list (counterclockwise-order (car cell) (unique-points (cdr cell)))))
+    (cons (car cell) (push (car (last point-list)) point-list))))
 
 (defun make-points (&optional (n 100))
   (loop :with arr = '()
@@ -221,6 +253,7 @@ This is important for two reasons:
 (defun delaunay-slow (point-list)
   (clean-debug-data)
   (start-debug-process)
+  (setf point-list (push-bounding-box point-list))
   (let* ((triangle-list '())
          ;; Our super-triangle to initiate the Delaunay algorithm. It is large enough to hold
          ;; all of the plane inside it.
@@ -258,8 +291,7 @@ This is important for two reasons:
                    (push edge polygon-edges))))
              
              (dolist (edge polygon-edges)
-               (push (counterclockwise (list (first edge) (second edge) vertex)) triangle-list))
-                                        (dump-triangles triangle-list))
+               (push (counterclockwise (list (first edge) (second edge) vertex)) triangle-list)))
     
     ;; Cleanup: remove supertriangle-related triangles
     (flet ((contains-super-vertex-p (triangle)
@@ -342,6 +374,7 @@ This is important for two reasons:
   (let ((point-list (if points points (make-points n)))
         (triangulation nil))
     (setf triangulation (delaunay-slow point-list))
+    (dump-triangles triangulation)
     
     (loop :for point :in point-list
           ;:for i :below 1
@@ -437,3 +470,11 @@ This is important for two reasons:
                      :finally
                         (setf new-diagram (voronoi 0 :points new-centroids)))
             :finally (return new-diagram)))))
+
+(defvar *max-height* 1f0)
+
+;; TODO: Maybe handle the 3D dimension in a more graceful way
+;; TODO: Localize height in a better-looking way
+(defun heightmap (voronoi-map)
+  "Turns a 2D map into a 3D by adding an extra dimension to the cell centroids."
+  (map 'list (lambda (cell) (cons (v! (car cell) (random *max-height*)) (cdr cell))) voronoi-map))
