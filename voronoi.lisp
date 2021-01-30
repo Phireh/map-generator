@@ -131,7 +131,6 @@ This is important for two reasons:
 (defun counterclockwise-order (centroid point-list)
   "Takes a list of 2D points and a centroid and returns them in strict counterclockwise order.
    This is useful for creating triangle fans, as they need to be in culling order."
-  ;; TODO: check if this correcty on OpenGL using (0,1) or we need to pass in a centroid.
   (map 'list #'car
        (sort
         (loop :for point :in point-list
@@ -253,7 +252,7 @@ This is important for two reasons:
 (defun delaunay-slow (point-list)
   (clean-debug-data)
   (start-debug-process)
-  (setf point-list (push-bounding-box point-list))
+  ;(setf point-list (push-bounding-box point-list))
   (let* ((triangle-list '())
          ;; Our super-triangle to initiate the Delaunay algorithm. It is large enough to hold
          ;; all of the plane inside it.

@@ -73,7 +73,7 @@
   (v! (* 2 (- pos (v! 0.5 0.5))) 0 1))
 
 (defun-g draw-voronoi-flat-frag-stage (&uniform (c :vec3))
-  (v! c 0))
+  (v! 1 1 1 0))
 
 (defpipeline-g draw-voronoi-flat-pipeline (:triangle-fan)
   :vertex (draw-voronoi-flat-vert-stage :vec2)
@@ -150,9 +150,10 @@
     (setf *voronoi-stream* (make-buffer-stream *voronoi-verts-arr* :primitive :points)))
 
   ;; TODO: Remove magic numbers
+  ;; TODO: Solve VAO limit problem when n cells > 200
   (when *testing-voronoi-flat*
     (setf *voronoi-flat-tmp-colors* (random-colors 200))
-    (setf *voronoi-map* (map 'list #'cell-to-fan (lloyd (voronoi 10) 10)))
+    (setf *voronoi-map* (map 'list #'cell-to-fan (lloyd (voronoi 300) 10)))
     (setf *voronoi-flat-verts-arr-list*
           (let ((fan-list '()))
             (dolist (cell *voronoi-map* fan-list)
