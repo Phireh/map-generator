@@ -12,6 +12,7 @@
 (defvar *voronoi-verts-arr* nil)
 (defvar *voronoi-stream* nil)
 
+(defvar *voronoi-lazy-cones* nil)
 (defvar *voronoi-lazy-verts-arr* nil)
 (defvar *voronoi-lazy-verts-arr-list* nil)
 
@@ -63,7 +64,7 @@
      (v! 1 1 1 1)))                    
 
 (defun-g draw-voronoi-lazy-frag-stage (&uniform (c :vec3))
-  (v! c 0))
+  (v! c 1))
 
 (defpipeline-g draw-voronoi-lazy-pipeline (:triangle-fan)
   :vertex (draw-voronoi-lazy-vert-stage :vec3)
@@ -73,7 +74,7 @@
   (v! (* 2 (- pos (v! 0.5 0.5))) 0 1))
 
 (defun-g draw-voronoi-flat-frag-stage (&uniform (c :vec3))
-  (v! 1 1 1 0))
+  (v! c 0))
 
 (defpipeline-g draw-voronoi-flat-pipeline (:triangle-fan)
   :vertex (draw-voronoi-flat-vert-stage :vec2)
@@ -119,16 +120,17 @@
          :element-type :uint))
 
   ;; TODO: Remove magic numbers
-  (setf *testing-voronoi-tmp-points* (make-points 100))
+  (setf *testing-voronoi-tmp-points* (make-points 300))
   (setf *testing-voronoi-tmp-colors* (random-colors (length *testing-voronoi-tmp-points*)))
 
 
   ;; NOTE: Doing a VAO for each cone. I can't think of a good way to use just 1 VAO while using
   ;; triangle fans.
   (when *testing-voronoi-lazy*
+    (setf *voronoi-lazy-cones* (create-cones *testing-voronoi-tmp-points*))
     (setf *voronoi-lazy-verts-arr-list*
           (let ((arr-list '()))
-            (dolist (cone (create-cones *testing-voronoi-tmp-points*) arr-list)
+            (dolist (cone *voronoi-lazy-cones* arr-list)
               (push (make-gpu-array
                      cone
                      :element-type :vec3) arr-list))))
@@ -152,12 +154,14 @@
   ;; TODO: Remove magic numbers
   ;; TODO: Solve VAO limit problem when n cells > 200
   (when *testing-voronoi-flat*
-    (setf *voronoi-flat-tmp-colors* (random-colors 200))
-    (setf *voronoi-map* (map 'list #'cell-to-fan (lloyd (voronoi 300) 10)))
+    (setf *voronoi-flat-tmp-colors* (random-colors 4000))
+    (setf *voronoi-map* (map 'list #'cell-to-fan (lloyd (voronoi 4000) 10)))
     (setf *voronoi-flat-verts-arr-list*
           (let ((fan-list '()))
             (dolist (cell *voronoi-map* fan-list)
-              (push (make-gpu-array cell :element-type :vec2) fan-list))))
+              (push (make-gpu-array
+                     cell
+                     :element-type :vec2) fan-list))))
     (setf *voronoi-flat-stream-list*
           (let ((stream-list '()))
             (dolist (fan *voronoi-flat-verts-arr-list* stream-list)
