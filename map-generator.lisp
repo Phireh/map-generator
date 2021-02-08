@@ -33,6 +33,7 @@
 (defvar *voronoi-flat-stream-list* nil)
 (defvar *voronoi-flat-tmp-colors* nil)
 (defvar *voronoi-map* nil)
+(defvar *voronoi-fans* nil)
 
 ;; This is here in case we use DCEL to represent edges as explained by
 ;; https://lispcookbook.github.io/cl-cookbook/data-structures.html#circular-lists
@@ -152,13 +153,16 @@
     (setf *voronoi-stream* (make-buffer-stream *voronoi-verts-arr* :primitive :points)))
 
   ;; TODO: Remove magic numbers
-  ;; TODO: Solve VAO limit problem when n cells > 200
   (when *testing-voronoi-flat*
-    (setf *voronoi-flat-tmp-colors* (random-colors 4000))
-    (setf *voronoi-map* (map 'list #'cell-to-fan (lloyd (voronoi 4000) 10)))
+
+    (setf *voronoi-map* (lloyd (voronoi 1000) 10))
+    (setf *voronoi-fans* (map 'list #'cell-to-fan *voronoi-map*))
+    (setf *voronoi-flat-tmp-colors* (map 'list (lambda (x) (rtg-math.vectors:+ (v! 0 0 1)
+                                                                               (rtg-math.vector3:*s (v! 1 1 0)
+                                                                                                    (z (car x))))) (heightmap *voronoi-map*)))
     (setf *voronoi-flat-verts-arr-list*
           (let ((fan-list '()))
-            (dolist (cell *voronoi-map* fan-list)
+            (dolist (cell *voronoi-fans* fan-list)
               (push (make-gpu-array
                      cell
                      :element-type :vec2) fan-list))))

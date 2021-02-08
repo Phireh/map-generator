@@ -476,4 +476,5 @@ This is important for two reasons:
 ;; TODO: Localize height in a better-looking way
 (defun heightmap (voronoi-map)
   "Turns a 2D map into a 3D by adding an extra dimension to the cell centroids."
-  (map 'list (lambda (cell) (cons (v! (car cell) (random *max-height*)) (cdr cell))) voronoi-map))
+  (map 'list (lambda (cell) (cons (v! (car cell) (rtg-math.vector2:distance (v! 0.5 0.5) (car cell)))
+                                  (cdr cell))) voronoi-map))
